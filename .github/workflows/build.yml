@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-13
+    runs-on: macos-12   # ✅ FIXED
 
     steps:
       - name: Checkout Code
@@ -14,13 +14,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 14   # Important for old Cordova
+          node-version: 14
 
-      - name: Install Legacy Cordova
-        run: |
-          npm install -g cordova@8
+      - name: Install Cordova 8
+        run: npm install -g cordova@8
 
-      - name: Create iOS Project (iOS 9 Compatible)
+      - name: Create iOS Project
         run: |
           set -e
 
@@ -31,34 +30,29 @@ jobs:
 
           cd promo
 
-          # Add old iOS platform (supports iOS 9)
           cordova platform add ios@4.5.5
 
-          # Force deployment target to iOS 9
+          # Force iOS 9 support
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = .*/IPHONEOS_DEPLOYMENT_TARGET = 9.0;/g' platforms/ios/CordovaLib/CordovaLib.xcodeproj/project.pbxproj
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = .*/IPHONEOS_DEPLOYMENT_TARGET = 9.0;/g' platforms/ios/PromoApp.xcodeproj/project.pbxproj
 
-          # Build for device (no signing needed for .app extraction)
           cordova build ios --device
 
-      - name: Locate .app
+      - name: Extract .app
         run: |
           APP_PATH=$(find promo/platforms/ios -name "*.app" -type d | head -n 1)
 
           if [ -z "$APP_PATH" ]; then
-            echo "❌ No .app found. Build failed."
+            echo "❌ No .app found"
             exit 1
           fi
 
-          echo "✅ Found app at: $APP_PATH"
-
           cp -r "$APP_PATH" PromoApp.app
 
-      - name: Zip App for Download
-        run: |
-          zip -r PromoApp-iOS9.zip PromoApp.app
+      - name: Zip App
+        run: zip -r PromoApp-iOS9.zip PromoApp.app
 
-      - name: Upload .app
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: PromoApp-iOS9
