@@ -5,7 +5,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Cordova Compiler
         run: npm install -g cordova
@@ -27,7 +27,7 @@ jobs:
           zip -r ShopPromo.ipa Payload
 
       - name: Deliver Downloadable IPA
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ShopPromo-IPA
           path: promo/platforms/ios/build/device/ShopPromo.ipa
