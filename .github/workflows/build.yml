@@ -1,4 +1,4 @@
-name: Build Offline Promo IPA
+name: Build iOS 9 Jailbreak App (.app)
 
 on:
   workflow_dispatch:
@@ -14,12 +14,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 14   # Important for old Cordova
 
-      - name: Install Cordova
-        run: npm install -g cordova
+      - name: Install Legacy Cordova
+        run: |
+          npm install -g cordova@8
 
-      - name: Create and Build iOS App
+      - name: Create iOS Project (iOS 9 Compatible)
         run: |
           set -e
 
@@ -30,23 +31,18 @@ jobs:
 
           cd promo
 
-          cordova platform add ios@6.2.0
+          # Add old iOS platform (supports iOS 9)
+          cordova platform add ios@4.5.5
 
-          # Try device build (may fail due to signing)
-          cordova build ios --device || echo "Device build failed, trying emulator..."
+          # Force deployment target to iOS 9
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = .*/IPHONEOS_DEPLOYMENT_TARGET = 9.0;/g' platforms/ios/CordovaLib/CordovaLib.xcodeproj/project.pbxproj
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = .*/IPHONEOS_DEPLOYMENT_TARGET = 9.0;/g' platforms/ios/PromoApp.xcodeproj/project.pbxproj
 
-          # Fallback to emulator (no signing required)
-          cordova build ios --emulator
+          # Build for device (no signing needed for .app extraction)
+          cordova build ios --device
 
-      - name: Debug Build Output
+      - name: Locate .app
         run: |
-          echo "Listing iOS build folders..."
-          ls -R promo/platforms/ios || true
-
-      - name: Package IPA
-        run: |
-          set -e
-
           APP_PATH=$(find promo/platforms/ios -name "*.app" -type d | head -n 1)
 
           if [ -z "$APP_PATH" ]; then
@@ -56,13 +52,14 @@ jobs:
 
           echo "✅ Found app at: $APP_PATH"
 
-          mkdir Payload
-          cp -r "$APP_PATH" Payload/
+          cp -r "$APP_PATH" PromoApp.app
 
-          zip -r ShopPromo.ipa Payload
+      - name: Zip App for Download
+        run: |
+          zip -r PromoApp-iOS9.zip PromoApp.app
 
-      - name: Upload IPA
+      - name: Upload .app
         uses: actions/upload-artifact@v4
         with:
-          name: ShopPromo-IPA
-          path: ShopPromo.ipa
+          name: PromoApp-iOS9
+          path: PromoApp-iOS9.zip
