@@ -1,33 +1,68 @@
 name: Build Offline Promo IPA
-on: workflow_dispatch
+
+on:
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: macos-latest
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Cordova Compiler
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Cordova
         run: npm install -g cordova
 
-      - name: Wrap HTML into iOS App
+      - name: Create and Build iOS App
         run: |
+          set -e
+
           cordova create promo com.piseyshop.promo PromoApp
+
           rm -rf promo/www/*
           cp -r www/* promo/www/
-          cd promo
-          cordova platform add ios@6.2.0
-          cordova build ios --device || true
 
-      - name: Package Unsigned IPA (For 3uTools)
+          cd promo
+
+          cordova platform add ios@6.2.0
+
+          # Try device build (may fail due to signing)
+          cordova build ios --device || echo "Device build failed, trying emulator..."
+
+          # Fallback to emulator (no signing required)
+          cordova build ios --emulator
+
+      - name: Debug Build Output
         run: |
-          cd promo/platforms/ios/build/device/
+          echo "Listing iOS build folders..."
+          ls -R promo/platforms/ios || true
+
+      - name: Package IPA
+        run: |
+          set -e
+
+          APP_PATH=$(find promo/platforms/ios -name "*.app" -type d | head -n 1)
+
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ No .app found. Build failed."
+            exit 1
+          fi
+
+          echo "✅ Found app at: $APP_PATH"
+
           mkdir Payload
-          mv *.app Payload/
+          cp -r "$APP_PATH" Payload/
+
           zip -r ShopPromo.ipa Payload
 
-      - name: Deliver Downloadable IPA
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: ShopPromo-IPA
-          path: promo/platforms/ios/build/device/ShopPromo.ipa
+          path: ShopPromo.ipa
