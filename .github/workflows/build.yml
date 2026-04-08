@@ -1,0 +1,33 @@
+name: Build Offline Promo IPA
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: macos-12
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Install Cordova Compiler
+        run: npm install -g cordova
+
+      - name: Wrap HTML into iOS App
+        run: |
+          cordova create promo com.piseyshop.promo PromoApp
+          rm -rf promo/www/*
+          cp -r www/* promo/www/
+          cd promo
+          cordova platform add ios@6.2.0
+          cordova build ios --device || true
+
+      - name: Package Unsigned IPA (For 3uTools)
+        run: |
+          cd promo/platforms/ios/build/device/
+          mkdir Payload
+          mv *.app Payload/
+          zip -r ShopPromo.ipa Payload
+
+      - name: Deliver Downloadable IPA
+        uses: actions/upload-artifact@v3
+        with:
+          name: ShopPromo-IPA
+          path: promo/platforms/ios/build/device/ShopPromo.ipa
